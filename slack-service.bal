@@ -4,17 +4,6 @@ import ballerina/io;
 import ballerinax/docker;
 import ballerina/config;
 
-type KeptnData record {
-    string githuborg?;
-    string project;
-    string teststrategy?;
-    string deploymentstrategy?;
-    string stage?;
-    string ^"service";
-    string image;
-    string tag;
-};
-
 type KeptnEvent record {
     string specversion;
     string ^"type";
@@ -23,7 +12,7 @@ type KeptnEvent record {
     string time?;
     string datacontenttype;
     string shkeptncontext;
-    KeptnData data;
+    json data;
 };
 
 @docker:Expose {}
@@ -52,29 +41,30 @@ service slackservice on slackSubscriberEP {
             log:printError("error reading JSON payload", err = payload);
         }
         else {
+            json slackMessageJson = {};
+
             KeptnEvent|error event = KeptnEvent.convert(payload);
 
             if (event is error) {
                 log:printError("error converting JSON payload to keptn event", err = event);
             }
             else {
-                json slackMessageJson = {};
-
-                match event.^"type" {
-                    "sh.keptn.events.new-artefact" => slackMessageJson = generateNewArtefactMessage(event);
-                    "sh.keptn.events.configuration-changed" => slackMessageJson = generateConfigurationChangedMessage(event);
-                    "sh.keptn.events.deployment-finished" => slackMessageJson = generateDeploymentFinishedMessage(event);
-                    "sh.keptn.events.tests-finished" => slackMessageJson = generateTestsFinishedMessage(event);
-                    "sh.keptn.events.evaluation-done" => slackMessageJson = generateEvaluationDoneMessage(event);
-                    _ => slackMessageJson = generateUnknownEventTypeMessage(event);
+                match event.^"type" { 
+                    "sh.keptn.events.new-artefact" => slackMessageJson = generateMessage("new artefact", "inbox_tray", event);
+                    "sh.keptn.events.configuration-changed" => slackMessageJson = generateMessage("configuration changed", "file_folder", event);
+                    "sh.keptn.events.deployment-finished" => slackMessageJson = generateMessage("deployment finished", "building_construction", event);
+                    "sh.keptn.events.tests-finished" => slackMessageJson = generateMessage("tests finished", "sports_medal", event);
+                    "sh.keptn.events.evaluation-done" => slackMessageJson = generateMessage("evaluation done", "checkered_flag", event);
+                    "sh.keptn.events.problem" => slackMessageJson = generateMessage("problem", "fire", event);
+                    _ => slackMessageJson = generateUnknownKeptnEventTypeMessage(event);
                 }
-
-                http:Request req = new;
-                req.setJsonPayload(slackMessageJson);
-
-                var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
-                _ = handleResponse(response);
             }
+
+            http:Request req = new;
+            req.setJsonPayload(slackMessageJson);
+
+            var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
+            _ = handleResponse(response);
         }   
 
         http:Response res = new;
@@ -101,33 +91,29 @@ function getSlackWebhookUrlPath() returns string {
     return slackWebhookUrl.substring(indexOfServices, slackWebhookUrl.length());
 }
 
-function generateUnknownEventTypeMessage(KeptnEvent event) returns @untainted json {
+function generateUnknownKeptnEventTypeMessage(KeptnEvent event) returns @untainted json {
     string text = "unknown event type `" + event.^"type" + "`, don't know what to do (shkeptncontext: " + event.shkeptncontext + ")";
     return generateNewMessageWithText(event, text);
 }
 
-function generateNewArtefactMessage(KeptnEvent event) returns @untainted json {
-    string text = ":inbox_tray: new artefact `" + event.data.image + ":" + event.data.tag + "` in project `" + event.data.project + "` for service `" + event.data.^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
-    return generateNewMessageWithText(event, text);
-}
-
-function generateConfigurationChangedMessage(KeptnEvent event) returns @untainted json {
-    string text = ":file_folder: configuration changed in project `" + event.data.project + "` for service `" + event.data.^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
-    return generateNewMessageWithText(event, text);
-}
-
-function generateDeploymentFinishedMessage(KeptnEvent event) returns @untainted json {
-    string text = ":building_construction: deployment finished in project `" + event.data.project + "` for service `" + event.data.^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
-    return generateNewMessageWithText(event, text);
-}
-
-function generateTestsFinishedMessage(KeptnEvent event) returns @untainted json {
-    string text = ":sports_medal: tests finished in project `" + event.data.project + "` for service `" + event.data.^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
-    return generateNewMessageWithText(event, text);
-}
-
-function generateEvaluationDoneMessage(KeptnEvent event) returns @untainted json {
-    string text = ":checkered_flag: evaluation done in project `" + event.data.project + "` for service `" + event.data.^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
+function generateMessage(string kind, string icon, KeptnEvent event) returns @untainted json {
+    string text = "";
+    // default event
+    if (event.data.ProblemID == ()) {
+        string image = io:sprintf("%s", event.data.image);
+        string tag = io:sprintf("%s", event.data.tag);
+        string project = io:sprintf("%s", event.data.project);
+        string ^"service" = io:sprintf("%s", event.data.^"service");
+        text = ":" + icon + ": " + kind + " `" + image + ":" + tag + "` in project `" + project + "` for service `" + ^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
+    }
+    // problem event
+    else {
+        string problemID = io:sprintf("%s", event.data.ProblemID);
+        string problemTitle = io:sprintf("%s", event.data.ProblemTitle);
+        string impactedEntity = io:sprintf("%s", event.data.ImpactedEntity);
+        text = ":fire: received problem `" + problemID + ": " + problemTitle + "`, impacted service is `" + impactedEntity + "`";
+    }
+    
     return generateNewMessageWithText(event, text);
 }
 
