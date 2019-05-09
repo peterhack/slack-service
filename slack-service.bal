@@ -26,11 +26,6 @@ type KeptnEvent record {
     KeptnData data;
 };
 
-final string SLACK_WEBHOOK_URL = config:getAsString("SLACK_WEBHOOK_URL");
-final string SLACK_WEBHOOK_URL_HOST = SLACK_WEBHOOK_URL.substring(0, SLACK_WEBHOOK_URL.indexOf("/services"));
-final string SLACK_WEBHOOK_URL_PATH = SLACK_WEBHOOK_URL.substring(SLACK_WEBHOOK_URL.indexOf("/services"), SLACK_WEBHOOK_URL.length());
-http:Client slackEndpoint = new(SLACK_WEBHOOK_URL_HOST);
-
 @docker:Expose {}
 listener http:Listener slackSubscriberEP = new(8080);
 
@@ -41,15 +36,16 @@ listener http:Listener slackSubscriberEP = new(8080);
     basePath: "/"
 }
 service slackservice on slackSubscriberEP {
-
     @http:ResourceConfig {
         methods: ["POST"],
         path: "/"
     }
     resource function handleEvent(http:Caller caller, http:Request request) {
+        http:Client slackEndpoint = new(getSlackWebhookUrlHost());
+        
         string callerEndpoint = io:sprintf("%s://%s:%s", caller.protocol, caller.remoteAddress.host, caller.remoteAddress.port);
         log:printInfo("received event from " + callerEndpoint);
-        
+
         json|error payload = request.getJsonPayload();
 
         if (payload is error) {
@@ -76,7 +72,7 @@ service slackservice on slackSubscriberEP {
                 http:Request req = new;
                 req.setJsonPayload(slackMessageJson);
 
-                var response = slackEndpoint->post(SLACK_WEBHOOK_URL_PATH, req);
+                var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
                 _ = handleResponse(response);
             }
         }   
@@ -84,6 +80,25 @@ service slackservice on slackSubscriberEP {
         http:Response res = new;
         _ = caller -> respond(res);
     }
+}
+
+function getSlackWebhookUrlHost() returns string {
+    string slackWebhookUrl = config:getAsString("SLACK_WEBHOOK_URL");
+    int indexOfServices = slackWebhookUrl.indexOf("/services");
+
+    if (indexOfServices == -1) {
+        error err = error("Environment variable SLACK_WEBHOOK_URL is either missing or doesn't have the format 'https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX' (see https://api.slack.com/incoming-webhooks for more information)");
+        panic err;
+    }
+
+    return slackWebhookUrl.substring(0, indexOfServices);
+}
+
+function getSlackWebhookUrlPath() returns string {
+    string slackWebhookUrl = config:getAsString("SLACK_WEBHOOK_URL");
+    int indexOfServices = slackWebhookUrl.indexOf("/services");
+
+    return slackWebhookUrl.substring(indexOfServices, slackWebhookUrl.length());
 }
 
 function generateUnknownEventTypeMessage(KeptnEvent event) returns @untainted json {
