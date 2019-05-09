@@ -7,7 +7,7 @@ before_install:
 - export TZ=Europe/Vienna
 - IMAGE=keptn/slack-service
 - REGISTRY_USER=dirkwallerstorfer
-- VERSION="$(cat version)"
+- VERSION="$(cat version | tr -d '[:space:]')"
 - DATE="$(date +'%Y%m%d.%H%M')"
 - GIT_SHA="$(git rev-parse --short HEAD)"
 - echo "$REGISTRY_PASSWORD" | docker login --username $REGISTRY_USER --password-stdin
