@@ -13,7 +13,7 @@ spec:
             imagePullPolicy: Always
             env:
             - name: SLACK_WEBHOOK_URL
-              value: ""
+              value: "https://hooks.slack.com/services/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"
             - name: INCLUDE_ATTACHMENT
               value: "true"
 ---
