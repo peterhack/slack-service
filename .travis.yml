@@ -13,6 +13,8 @@ before_install:
 - echo "$REGISTRY_PASSWORD" | docker login --username $REGISTRY_USER --password-stdin
 - ./writeManifest.sh
 - cat MANIFEST
+- wget https://product-dist.ballerina.io/downloads/0.991.0/ballerina-linux-installer-x64-0.991.0.deb
+- sudo dpkg -i ballerina-linux-installer-x64-0.991.0.deb
 - ballerina test slack-service.bal
 jobs:
   include:
