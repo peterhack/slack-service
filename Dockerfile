@@ -1,4 +1,4 @@
-FROM ballerina/ballerina:0.990.3
+FROM ballerina/ballerina:0.991.0
 
 WORKDIR /
 COPY ./MANIFEST /
