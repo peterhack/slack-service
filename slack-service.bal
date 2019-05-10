@@ -81,7 +81,7 @@ service slackservice on slackSubscriberEP {
         }   
 
         http:Response res = new;
-        _ = caller -> respond(res);
+        checkpanic caller -> respond(res);
     }
 }
 
@@ -120,7 +120,7 @@ function generateUnknownEventTypeMessage(KeptnEvent event) returns @untainted js
 }
 
 function generateSlackMessageJSON(KeptnEvent event, string text) returns json {
-    boolean includeAttachment = config:getAsBoolean("INCLUDE_ATTACHMENT", default = false);
+    boolean includeAttachment = config:getAsBoolean("INCLUDE_ATTACHMENT", defaultValue = false);
     
     json slackMessageJson = {
         text: text
