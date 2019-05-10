@@ -3,6 +3,19 @@ import ballerina/log;
 import ballerina/io;
 import ballerinax/docker;
 import ballerina/config;
+import ballerina/test;
+
+type KeptnData record {
+    string image?;
+    string tag?;
+    string project?;
+    string ^"service"?;
+    string State?;
+    string ProblemID?;
+    string ProblemTitle?;
+    string ImpactedEntity?;
+    anydata...;
+};
 
 type KeptnEvent record {
     string specversion;
@@ -12,7 +25,7 @@ type KeptnEvent record {
     string time?;
     string datacontenttype;
     string shkeptncontext;
-    json data;
+    KeptnData data;
 };
 
 @docker:Expose {}
@@ -46,7 +59,7 @@ service slackservice on slackSubscriberEP {
             KeptnEvent|error event = KeptnEvent.convert(payload);
 
             if (event is error) {
-                log:printError("error converting JSON payload to keptn event", err = event);
+                log:printError("error converting JSON payload '" + payload.toString() + "' to keptn event", err = event);
             }
             else {
                 match event.^"type" { 
@@ -55,8 +68,8 @@ service slackservice on slackSubscriberEP {
                     "sh.keptn.events.deployment-finished" => slackMessageJson = generateMessage("deployment finished", "building_construction", event);
                     "sh.keptn.events.tests-finished" => slackMessageJson = generateMessage("tests finished", "sports_medal", event);
                     "sh.keptn.events.evaluation-done" => slackMessageJson = generateMessage("evaluation done", "checkered_flag", event);
-                    "sh.keptn.events.problem" => slackMessageJson = generateMessage("problem", "fire", event);
-                    _ => slackMessageJson = generateUnknownKeptnEventTypeMessage(event);
+                    "sh.keptn.events.problem" => slackMessageJson = generateProblemMessage(event);
+                    _ => slackMessageJson = generateUnknownEventTypeMessage(event);
                 }
             }
 
@@ -91,33 +104,22 @@ function getSlackWebhookUrlPath() returns string {
     return slackWebhookUrl.substring(indexOfServices, slackWebhookUrl.length());
 }
 
-function generateUnknownKeptnEventTypeMessage(KeptnEvent event) returns @untainted json {
-    string text = "unknown event type `" + event.^"type" + "`, don't know what to do (shkeptncontext: " + event.shkeptncontext + ")";
-    return generateNewMessageWithText(event, text);
-}
-
 function generateMessage(string kind, string icon, KeptnEvent event) returns @untainted json {
-    string text = "";
-    // default event
-    if (event.data.ProblemID == ()) {
-        string image = io:sprintf("%s", event.data.image);
-        string tag = io:sprintf("%s", event.data.tag);
-        string project = io:sprintf("%s", event.data.project);
-        string ^"service" = io:sprintf("%s", event.data.^"service");
-        text = ":" + icon + ": " + kind + " `" + image + ":" + tag + "` in project `" + project + "` for service `" + ^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
-    }
-    // problem event
-    else {
-        string problemID = io:sprintf("%s", event.data.ProblemID);
-        string problemTitle = io:sprintf("%s", event.data.ProblemTitle);
-        string impactedEntity = io:sprintf("%s", event.data.ImpactedEntity);
-        text = ":fire: received problem `" + problemID + ": " + problemTitle + "`, impacted service is `" + impactedEntity + "`";
-    }
-    
-    return generateNewMessageWithText(event, text);
+    string text = ":" + icon + ": " + kind + " `" + event.data.image + ":" + event.data.tag + "` in project `" + event.data.project + "` for service `" + event.data.^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
+    return generateSlackMessageJSON(event, text);
 }
 
-function generateNewMessageWithText(KeptnEvent event, string text) returns json {
+function generateProblemMessage(KeptnEvent event) returns @untainted json {
+    string text = ":fire: received problem `" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`, impacted service is `" + event.data.ImpactedEntity + "`";
+    return generateSlackMessageJSON(event, text);
+}
+
+function generateUnknownEventTypeMessage(KeptnEvent event) returns @untainted json {
+    string text = "unknown event type `" + event.^"type" + "`, don't know what to do (shkeptncontext: " + event.shkeptncontext + ")";
+    return generateSlackMessageJSON(event, text);
+}
+
+function generateSlackMessageJSON(KeptnEvent event, string text) returns json {
     boolean includeAttachment = config:getAsBoolean("INCLUDE_ATTACHMENT", default = false);
     
     json slackMessageJson = {
@@ -144,9 +146,28 @@ function handleResponse(http:Response|error response) {
             io:println(res);
         }
         else {
-            log:printInfo(res);
+            log:printInfo("event successfully sent to Slack - response: " + res);
         }
     } else {
         io:println("Error when calling the backend: ", response.reason());
     }
+}
+
+// tests
+@test:Config
+function testSlackWebhookUrlHostParsing() {
+    string url = "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX";
+    config:setConfig("SLACK_WEBHOOK_URL", url);
+
+    string host = getSlackWebhookUrlHost();
+    test:assertEquals(host, "https://hooks.slack.com");
+}
+
+@test:Config
+function testSlackWebhookUrlPathParsing() {
+    string url = "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX";
+    config:setConfig("SLACK_WEBHOOK_URL", url);
+
+    string path = getSlackWebhookUrlPath();
+    test:assertEquals(path, "/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX");
 }
