@@ -10,6 +10,7 @@ type KeptnData record {
     string tag?;
     string project?;
     string ^"service"?;
+    string stage?;
     string State?;
     string ProblemID?;
     string ProblemTitle?;
@@ -28,12 +29,8 @@ type KeptnEvent record {
     KeptnData data;
 };
 
-#@docker:Expose {}
 listener http:Listener slackSubscriberEP = new(8080);
 
-#@docker:Config {
-#    name: "keptn/slack-service"
-#}
 @http:ServiceConfig {
     basePath: "/"
 }
@@ -54,26 +51,8 @@ service slackservice on slackSubscriberEP {
             log:printError("error reading JSON payload", err = payload);
         }
         else {
-            json slackMessageJson = {};
-
-            KeptnEvent|error event = KeptnEvent.convert(payload);
-
-            if (event is error) {
-                log:printError("error converting JSON payload '" + payload.toString() + "' to keptn event", err = event);
-            }
-            else {
-                match event.^"type" { 
-                    "sh.keptn.events.new-artefact" => slackMessageJson = generateMessage("new artefact", "inbox_tray", event);
-                    "sh.keptn.events.configuration-changed" => slackMessageJson = generateMessage("configuration changed", "file_folder", event);
-                    "sh.keptn.events.deployment-finished" => slackMessageJson = generateMessage("deployment finished", "building_construction", event);
-                    "sh.keptn.events.tests-finished" => slackMessageJson = generateMessage("tests finished", "sports_medal", event);
-                    "sh.keptn.events.evaluation-done" => slackMessageJson = generateMessage("evaluation done", "checkered_flag", event);
-                    "sh.keptn.events.problem" => slackMessageJson = generateProblemMessage(event);
-                    _ => slackMessageJson = generateUnknownEventTypeMessage(event);
-                }
-            }
-
             http:Request req = new;
+            json slackMessageJson = generateMessage(payload);
             req.setJsonPayload(slackMessageJson);
 
             var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
@@ -104,39 +83,109 @@ function getSlackWebhookUrlPath() returns string {
     return slackWebhookUrl.substring(indexOfServices, slackWebhookUrl.length());
 }
 
-function generateMessage(string kind, string icon, KeptnEvent event) returns @untainted json {
-    string text = ":" + icon + ": " + kind + " `" + event.data.image + ":" + event.data.tag + "` in project `" + event.data.project + "` for service `" + event.data.^"service" + "` (shkeptncontext: " + event.shkeptncontext + ")";
-    return generateSlackMessageJSON(event, text);
-}
+function generateMessage(json payload) returns @untainted json {
+    KeptnEvent|error event = KeptnEvent.convert(payload);
 
-function generateProblemMessage(KeptnEvent event) returns @untainted json {
-    string text = ":fire: received problem `" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`, impacted service is `" + event.data.ImpactedEntity + "`";
-    return generateSlackMessageJSON(event, text);
-}
-
-function generateUnknownEventTypeMessage(KeptnEvent event) returns @untainted json {
-    string text = "unknown event type `" + event.^"type" + "`, don't know what to do (shkeptncontext: " + event.shkeptncontext + ")";
-    return generateSlackMessageJSON(event, text);
-}
-
-function generateSlackMessageJSON(KeptnEvent event, string text) returns json {
-    boolean includeAttachment = config:getAsBoolean("INCLUDE_ATTACHMENT", defaultValue = false);
-    
-    json slackMessageJson = {
-        text: text
-    };
-
-    if (includeAttachment) {
-        string eventString = io:sprintf("```%s```", event);
-        slackMessageJson["attachments"] = [
-            {
-                title: "JSON",
-                text: eventString
-            }
-        ];
+    if (event is error) {
+        log:printError("error converting JSON payload '" + payload.toString() + "' to keptn event", err = event);
     }
+    else {
+        string eventType = extractEventTypeFromEvent(event);
+        string text = "*" + eventType.toUpper() + "*\n";
+        boolean eventTypeKnown = isEventTypeKnown(event.^"type");
+
+        io:println("eventtype '" + eventType + "' is known: " + eventTypeKnown);
+
+        if (eventTypeKnown) {
+            if (payload.data.project != ()) {
+                text += "Project:\t`" + event.data.project + "`\n";
+            }
+
+            if (payload.data.^"service" != ()) {
+                text += "Service:\t`" + event.data.^"service" + "`\n";
+            }
+
+            if (payload.data.image != ()) {
+                text += "Image:  \t`" + event.data.image + ":" + event.data.tag + "`\n";
+            }
+
+            if (payload.data.stage != ()) {
+                text += "Stage:  \t`" + event.data.stage + "`\n";
+            }
+
+            if (payload.data.ProblemID != () && payload.data.ProblemTitle != ()) {
+                text += "Problem:\t`" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`\n";
+            }
+
+            if (payload.data.ImpactedEntity != ()) {
+                text += "Impacted:\t`" + event.data.ImpactedEntity + "`\n";
+            }
+        }
+        else {
+            text += "keptn can't process this event, the event type is unknown";
+        }
+
+        return generateSlackMessageJSON(text, event);
+    }
+}
+
+function extractEventTypeFromEvent(KeptnEvent event) returns string {
+    string eventType = event.^"type";
+    int indexOfLastDot = eventType.lastIndexOf(".") + 1;
+    eventType = eventType.substring(indexOfLastDot, eventType.length());
+    return eventType;
+}
+
+function generateSlackMessageJSON(string text, KeptnEvent event) returns json {
+    json message = {
+        text: text,
+        blocks: [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": text
+                },
+                "accessory": {
+                    "type": "image",
+                    "image_url": getImageLink(event),
+                    "alt_text": "alt"
+                }
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "keptn-context: " + event.shkeptncontext
+                    }
+                ]
+            },
+            {
+                "type": "divider"
+            }
+        ]
+    };
+    return message;
+}
+
+function getImageLink(KeptnEvent event) returns string {
+    return "https://via.placeholder.com/150";
+}
+
+function isEventTypeKnown(string eventType) returns boolean {
+    boolean eventTypeKnown = false;
     
-    return slackMessageJson;
+    match eventType {
+        "sh.keptn.events.new-artefact" => eventTypeKnown = true;
+        "sh.keptn.events.configuration-changed" => eventTypeKnown = true;
+        "sh.keptn.events.deployment-finished" => eventTypeKnown = true;
+        "sh.keptn.events.tests-finished" => eventTypeKnown = true;
+        "sh.keptn.events.evaluation-done" => eventTypeKnown = true;
+        "sh.keptn.events.problem" => eventTypeKnown = true;
+    }
+
+    return eventTypeKnown;
 }
 
 function handleResponse(http:Response|error response) {
@@ -170,4 +219,38 @@ function testSlackWebhookUrlPathParsing() {
 
     string path = getSlackWebhookUrlPath();
     test:assertEquals(path, "/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX");
+}
+
+@test:Config
+function testExtractEventTypeFromEvent() {
+    KeptnEvent event = {
+        specversion: "",
+        datacontenttype: "",
+        shkeptncontext: "",
+        data: {},
+        ^"type": "something.bla.bla.new-artefact"
+    };
+
+    string eventType = extractEventTypeFromEvent(event);
+    test:assertEquals(eventType, "new-artefact");
+}
+
+@test:Config {
+    dataProvider: "eventTypeDataProvider"
+}
+function testIsEventTypeKnown(string eventType, string expectedResult) {
+    boolean eventTypeKnown = isEventTypeKnown(eventType);
+    test:assertEquals(string.convert(eventTypeKnown), expectedResult);
+}
+
+function eventTypeDataProvider() returns (string[][]) {
+    return [
+        ["sh.keptn.events.new-artefact", "true"],
+        ["sh.keptn.events.configuration-changed", "true"],
+        ["sh.keptn.events.deployment-finished", "true"],
+        ["sh.keptn.events.tests-finished", "true"],
+        ["sh.keptn.events.evaluation-done", "true"],
+        ["sh.keptn.events.problem", "true"],
+        ["something", "false"]
+    ];
 }
