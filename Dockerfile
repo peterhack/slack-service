@@ -1,11 +1,10 @@
-FROM ballerina/ballerina:0.990.3
+FROM ballerina/ballerina:0.991.0
 
-WORKDIR /
 COPY ./MANIFEST /
-COPY ./slack-service.bal /
+COPY ./slack-service.balx /home/ballerina
 
 RUN ls -la /
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "cat /MANIFEST && ballerina run slack-service.bal"]
+CMD ["sh", "-c", "cat /MANIFEST && ballerina run slack-service.balx"]

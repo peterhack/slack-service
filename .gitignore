@@ -1,8 +1,7 @@
-# Ballerina file
+# Ballerina files
 .ballerina
-
-# log file
 ballerina-internal.log
+*.balx
 
 # target folder
 target/
