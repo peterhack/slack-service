@@ -28,12 +28,12 @@ type KeptnEvent record {
     KeptnData data;
 };
 
-@docker:Expose {}
+#@docker:Expose {}
 listener http:Listener slackSubscriberEP = new(8080);
 
-@docker:Config {
-    name: "keptn/slack-service"
-}
+#@docker:Config {
+#    name: "keptn/slack-service"
+#}
 @http:ServiceConfig {
     basePath: "/"
 }
@@ -81,7 +81,7 @@ service slackservice on slackSubscriberEP {
         }   
 
         http:Response res = new;
-        checkpanic caller -> respond(res);
+        checkpanic caller->respond(res);
     }
 }
 

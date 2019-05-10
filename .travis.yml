@@ -16,6 +16,7 @@ before_install:
 - wget https://product-dist.ballerina.io/downloads/0.991.0/ballerina-linux-installer-x64-0.991.0.deb
 - sudo dpkg -i ballerina-linux-installer-x64-0.991.0.deb
 - ballerina test slack-service.bal
+- ballerina build slack-service.bal
 jobs:
   include:
   - stage: feature/bug/hotfix
