@@ -94,8 +94,6 @@ function generateMessage(json payload) returns @untainted json {
         string text = "*" + eventType.toUpper() + "*\n";
         boolean eventTypeKnown = isEventTypeKnown(event.^"type");
 
-        io:println("eventtype '" + eventType + "' is known: " + eventTypeKnown);
-
         if (eventTypeKnown) {
             if (payload.data.project != ()) {
                 text += "Project:\t`" + event.data.project + "`\n";
