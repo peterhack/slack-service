@@ -1,4 +1,4 @@
-FROM ballerina/ballerina-runtime:0.991.0
+FROM ballerina/ballerina:0.991.0
 
 COPY ./MANIFEST /
 COPY ./slack-service.balx /home/ballerina
