@@ -29,6 +29,13 @@ type KeptnEvent record {
     KeptnData data;
 };
 
+final string NEW_ARTEFACT = "sh.keptn.events.new-artefact";
+final string CONFIGURATION_CHANGED = "sh.keptn.events.configuration-changed";
+final string DEPLOYMENT_FINISHED = "sh.keptn.events.deployment-finished";
+final string TESTS_FINISHED = "sh.keptn.events.tests-finished";
+final string EVALUATION_DONE = "sh.keptn.events.evaluation-done";
+final string PROBLEM = "sh.keptn.events.problem";
+
 listener http:Listener slackSubscriberEP = new(8080);
 
 @http:ServiceConfig {
@@ -41,9 +48,6 @@ service slackservice on slackSubscriberEP {
     }
     resource function handleEvent(http:Caller caller, http:Request request) {
         http:Client slackEndpoint = new(getSlackWebhookUrlHost());
-        
-        string callerEndpoint = io:sprintf("%s://%s:%s", caller.protocol, caller.remoteAddress.host, caller.remoteAddress.port);
-        log:printInfo("received event from " + callerEndpoint);
 
         json|error payload = request.getJsonPayload();
 
@@ -79,7 +83,6 @@ function getSlackWebhookUrlHost() returns string {
 function getSlackWebhookUrlPath() returns string {
     string slackWebhookUrl = config:getAsString("SLACK_WEBHOOK_URL");
     int indexOfServices = slackWebhookUrl.indexOf("/services");
-
     return slackWebhookUrl.substring(indexOfServices, slackWebhookUrl.length());
 }
 
@@ -90,36 +93,30 @@ function generateMessage(json payload) returns @untainted json {
         log:printError("error converting JSON payload '" + payload.toString() + "' to keptn event", err = event);
     }
     else {
-        string eventType = extractEventTypeFromEvent(event);
-        string text = "*" + eventType.toUpper() + "*\n";
-        boolean eventTypeKnown = isEventTypeKnown(event.^"type");
+        string text = "";
 
-        if (eventTypeKnown) {
-            if (payload.data.project != ()) {
+        if (isEventTypeKnown(event.^"type")) {
+            if (event.^"type".equalsIgnoreCase(NEW_ARTEFACT) ||
+                event.^"type".equalsIgnoreCase(CONFIGURATION_CHANGED) ||
+                event.^"type".equalsIgnoreCase(DEPLOYMENT_FINISHED) ||
+                event.^"type".equalsIgnoreCase(TESTS_FINISHED) ||
+                event.^"type".equalsIgnoreCase(EVALUATION_DONE)) {
+                string eventType = extractEventTypeFromEvent(event);
+                text += "*" + eventType.toUpper() + "*\n";
                 text += "Project:\t`" + event.data.project + "`\n";
-            }
-
-            if (payload.data.^"service" != ()) {
                 text += "Service:\t`" + event.data.^"service" + "`\n";
-            }
-
-            if (payload.data.image != ()) {
                 text += "Image:  \t`" + event.data.image + ":" + event.data.tag + "`\n";
+                if payload.data.stage != () {
+                    text += "Stage:  \t`" + event.data.stage + "`\n";
+                }
             }
-
-            if (payload.data.stage != ()) {
-                text += "Stage:  \t`" + event.data.stage + "`\n";
-            }
-
-            if (payload.data.ProblemID != () && payload.data.ProblemTitle != ()) {
+            if (event.^"type".equalsIgnoreCase(PROBLEM)) {
                 text += "Problem:\t`" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`\n";
-            }
-
-            if (payload.data.ImpactedEntity != ()) {
-                text += "Impacted:\t`" + event.data.ImpactedEntity + "`\n";
-            }
+                text += "Impact: \t`" + event.data.ImpactedEntity + "`\n";
+            }  
         }
         else {
+            text += "*" + event.^"type".toUpper() + "*\n";
             text += "keptn can't process this event, the event type is unknown";
         }
 
@@ -172,18 +169,12 @@ function getImageLink(KeptnEvent event) returns string {
 }
 
 function isEventTypeKnown(string eventType) returns boolean {
-    boolean eventTypeKnown = false;
-    
-    match eventType {
-        "sh.keptn.events.new-artefact" => eventTypeKnown = true;
-        "sh.keptn.events.configuration-changed" => eventTypeKnown = true;
-        "sh.keptn.events.deployment-finished" => eventTypeKnown = true;
-        "sh.keptn.events.tests-finished" => eventTypeKnown = true;
-        "sh.keptn.events.evaluation-done" => eventTypeKnown = true;
-        "sh.keptn.events.problem" => eventTypeKnown = true;
-    }
-
-    return eventTypeKnown;
+    return eventType.equalsIgnoreCase(NEW_ARTEFACT) ||
+        eventType.equalsIgnoreCase(CONFIGURATION_CHANGED) ||
+        eventType.equalsIgnoreCase(DEPLOYMENT_FINISHED) ||
+        eventType.equalsIgnoreCase(TESTS_FINISHED) ||
+        eventType.equalsIgnoreCase(EVALUATION_DONE) ||
+        eventType.equalsIgnoreCase(PROBLEM);
 }
 
 function handleResponse(http:Response|error response) {
@@ -251,4 +242,88 @@ function eventTypeDataProvider() returns (string[][]) {
         ["sh.keptn.events.problem", "true"],
         ["something", "false"]
     ];
+}
+
+@test:Config
+function testGenerateSlackMessageJSON() {
+    json expected = {
+        text: "hello world",
+        blocks: [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "hello world"
+                },
+                "accessory": {
+                    "type": "image",
+                    "image_url": "https://via.placeholder.com/150",
+                    "alt_text": "alt"
+                }
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "keptn-context: 12345"
+                    }
+                ]
+            },
+            {
+                "type": "divider"
+            }
+        ]
+    };
+    KeptnEvent event = {
+        specversion: "",
+        datacontenttype: "",
+        shkeptncontext: "12345",
+        data: {},
+        ^"type": ""
+    };
+    json actual = generateSlackMessageJSON("hello world", event);
+    test:assertEquals(actual, expected);
+}
+
+@test:Config
+function testGenerateMessageWithUnkownEventType() {
+    json expected = {
+        text: "*COM.SOMETHING.EVENT*\nkeptn can't process this event, the event type is unknown",
+        blocks: [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*COM.SOMETHING.EVENT*\nkeptn can't process this event, the event type is unknown"
+                },
+                "accessory": {
+                    "type": "image",
+                    "image_url": "https://via.placeholder.com/150",
+                    "alt_text": "alt"
+                }
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "keptn-context: 123"
+                    }
+                ]
+            },
+            {
+                "type": "divider"
+            }
+        ]
+    };
+    json payload = {
+        specversion: "",
+        datacontenttype: "",
+        shkeptncontext: "123",
+        data: {},
+        ^"type": "com.something.event"
+    };
+    json actual = generateMessage(payload);
+    test:assertEquals(actual, expected);
 }
