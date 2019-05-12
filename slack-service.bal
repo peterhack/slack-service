@@ -1,7 +1,6 @@
 import ballerina/http;
 import ballerina/log;
 import ballerina/io;
-import ballerinax/docker;
 import ballerina/config;
 import ballerina/test;
 
@@ -29,12 +28,14 @@ type KeptnEvent record {
     KeptnData data;
 };
 
-final string NEW_ARTEFACT = "sh.keptn.events.new-artefact";
-final string CONFIGURATION_CHANGED = "sh.keptn.events.configuration-changed";
-final string DEPLOYMENT_FINISHED = "sh.keptn.events.deployment-finished";
-final string TESTS_FINISHED = "sh.keptn.events.tests-finished";
-final string EVALUATION_DONE = "sh.keptn.events.evaluation-done";
-final string PROBLEM = "sh.keptn.events.problem";
+const NEW_ARTEFACT = "sh.keptn.events.new-artefact";
+const CONFIGURATION_CHANGED = "sh.keptn.events.configuration-changed";
+const DEPLOYMENT_FINISHED = "sh.keptn.events.deployment-finished";
+const TESTS_FINISHED = "sh.keptn.events.tests-finished";
+const EVALUATION_DONE = "sh.keptn.events.evaluation-done";
+const PROBLEM = "sh.keptn.events.problem";
+type KEPTN_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE|PROBLEM;
+type KEPTN_CD_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE;
 
 listener http:Listener slackSubscriberEP = new(8080);
 
@@ -94,15 +95,13 @@ function generateMessage(json payload) returns @untainted json {
     }
     else {
         string text = "";
+        string eventType = event.^"type";
 
-        if (isEventTypeKnown(event.^"type")) {
-            if (event.^"type".equalsIgnoreCase(NEW_ARTEFACT) ||
-                event.^"type".equalsIgnoreCase(CONFIGURATION_CHANGED) ||
-                event.^"type".equalsIgnoreCase(DEPLOYMENT_FINISHED) ||
-                event.^"type".equalsIgnoreCase(TESTS_FINISHED) ||
-                event.^"type".equalsIgnoreCase(EVALUATION_DONE)) {
-                string eventType = extractEventTypeFromEvent(event);
-                text += "*" + eventType.toUpper() + "*\n";
+        if (eventType is KEPTN_EVENT) {
+            // new-artefact, configuration-changed, deployment-finished, tests-finished, evaluation-done
+            if (eventType is KEPTN_CD_EVENT) {
+                string knownEventType = extractEventTypeFromEvent(event);
+                text += "*" + knownEventType.toUpper() + "*\n";
                 text += "Project:\t`" + event.data.project + "`\n";
                 text += "Service:\t`" + event.data.^"service" + "`\n";
                 text += "Image:  \t`" + event.data.image + ":" + event.data.tag + "`\n";
@@ -110,7 +109,8 @@ function generateMessage(json payload) returns @untainted json {
                     text += "Stage:  \t`" + event.data.stage + "`\n";
                 }
             }
-            if (event.^"type".equalsIgnoreCase(PROBLEM)) {
+            // problem event
+            else {
                 text += "Problem:\t`" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`\n";
                 text += "Impact: \t`" + event.data.ImpactedEntity + "`\n";
             }  
@@ -152,7 +152,7 @@ function generateSlackMessageJSON(string text, KeptnEvent event) returns json {
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": "keptn-context: " + event.shkeptncontext
+                        "text": getKeptnContext(event)
                     }
                 ]
             },
@@ -168,13 +168,21 @@ function getImageLink(KeptnEvent event) returns string {
     return "https://via.placeholder.com/150";
 }
 
-function isEventTypeKnown(string eventType) returns boolean {
-    return eventType.equalsIgnoreCase(NEW_ARTEFACT) ||
-        eventType.equalsIgnoreCase(CONFIGURATION_CHANGED) ||
-        eventType.equalsIgnoreCase(DEPLOYMENT_FINISHED) ||
-        eventType.equalsIgnoreCase(TESTS_FINISHED) ||
-        eventType.equalsIgnoreCase(EVALUATION_DONE) ||
-        eventType.equalsIgnoreCase(PROBLEM);
+function getKeptnContext(KeptnEvent event) returns string {
+    string template = "keptn-context: %s";
+    string templateWithLink = "keptn-context: <%s|%s>";
+    string url = config:getAsString("BRIDGE_URL", defaultValue = "");
+    string keptnContext = "";
+
+    if (url == "") {
+        keptnContext = io:sprintf(template, event.shkeptncontext);
+    }
+    else {
+        string formattedURL = io:sprintf(url, event.shkeptncontext);
+        keptnContext = io:sprintf(templateWithLink, formattedURL, event.shkeptncontext);
+    }
+
+    return keptnContext;
 }
 
 function handleResponse(http:Response|error response) {
@@ -222,26 +230,6 @@ function testExtractEventTypeFromEvent() {
 
     string eventType = extractEventTypeFromEvent(event);
     test:assertEquals(eventType, "new-artefact");
-}
-
-@test:Config {
-    dataProvider: "eventTypeDataProvider"
-}
-function testIsEventTypeKnown(string eventType, string expectedResult) {
-    boolean eventTypeKnown = isEventTypeKnown(eventType);
-    test:assertEquals(string.convert(eventTypeKnown), expectedResult);
-}
-
-function eventTypeDataProvider() returns (string[][]) {
-    return [
-        ["sh.keptn.events.new-artefact", "true"],
-        ["sh.keptn.events.configuration-changed", "true"],
-        ["sh.keptn.events.deployment-finished", "true"],
-        ["sh.keptn.events.tests-finished", "true"],
-        ["sh.keptn.events.evaluation-done", "true"],
-        ["sh.keptn.events.problem", "true"],
-        ["something", "false"]
-    ];
 }
 
 @test:Config
@@ -325,5 +313,42 @@ function testGenerateMessageWithUnkownEventType() {
         ^"type": "com.something.event"
     };
     json actual = generateMessage(payload);
+    test:assertEquals(actual, expected);
+}
+
+@test:Config
+function testGetKeptnContextDefault() {
+    KeptnEvent event = {
+        specversion: "",
+        datacontenttype: "",
+        shkeptncontext: "a9b94cff-1b10-4018-9b78-28898f78800d",
+        data: {},
+        ^"type": ""
+    };
+    string expected = "keptn-context: a9b94cff-1b10-4018-9b78-28898f78800d";
+    string actual = getKeptnContext(event);
+    test:assertEquals(actual, expected);
+}
+
+@test:Config{
+    dependsOn: ["testGetKeptnContextDefault",
+        "testGenerateMessageWithUnkownEventType",
+        "testGenerateSlackMessageJSON",
+        "testExtractEventTypeFromEvent",
+        "testSlackWebhookUrlPathParsing",
+        "testSlackWebhookUrlHostParsing"
+    ]
+}
+function testGetKeptnContext() {
+    config:setConfig("BRIDGE_URL", "https://www.google.at/search?q=%s");
+    KeptnEvent event = {
+        specversion: "",
+        datacontenttype: "",
+        shkeptncontext: "12345",
+        data: {},
+        ^"type": ""
+    };
+    string expected = "keptn-context: <https://www.google.at/search?q=12345|12345>";
+    string actual = getKeptnContext(event);
     test:assertEquals(actual, expected);
 }
