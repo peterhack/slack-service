@@ -180,6 +180,7 @@ function getKeptnContext(KeptnEvent event) returns string {
         keptnContext = io:sprintf(template, event.shkeptncontext);
     }
     else {
+        url += "/view-context/%s";
         string formattedURL = io:sprintf(url, event.shkeptncontext);
         keptnContext = io:sprintf(templateWithLink, formattedURL, event.shkeptncontext);
     }
@@ -342,7 +343,7 @@ function testGetKeptnContextDefault() {
     ]
 }
 function testGetKeptnContext() {
-    config:setConfig("BRIDGE_URL", "https://www.google.at/search?q=%s");
+    config:setConfig("BRIDGE_URL", "https://www.google.at");
     KeptnEvent event = {
         specversion: "",
         datacontenttype: "",
@@ -350,7 +351,7 @@ function testGetKeptnContext() {
         data: {},
         ^"type": ""
     };
-    string expected = "keptn-context: <https://www.google.at/search?q=12345|12345>";
+    string expected = "keptn-context: <https://www.google.at/view-context/12345|12345>";
     string actual = getKeptnContext(event);
     test:assertEquals(actual, expected);
 }
