@@ -22,20 +22,12 @@ spec:
             env:
             - name: SLACK_WEBHOOK_URL
               value: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
-            - name: INCLUDE_ATTACHMENT
-              value: "true"
+            - name: BRIDGE_URL
+              value: "http://bridge.keptn.x.x.x.x.xip.io"
 ...
 ```
 
-The `INCLUDE_ATTACHMENT` environment variable controls if the payload of the event is attached to the slack message.
-
-- `INCLUDE_ATTACHMENT=true`
-
-  ![Slack Message with attachment](./assets/slackMessageWithAttachment.png)
-
-- `INCLUDE_ATTACHMENT=false`
-
-  ![Slack Message without attachment](./assets/slackMessageWithoutAttachment.png)
+The `BRIDGE_URL` environment variable controls if the slack messages contain a link that takes you to the keptn [bridge](https://github.com/keptn/bridge). The value should be the publicly available URL.
 
 Then apply the `service.yaml` using `kubectl` to create the Slack service and the subscriptions to the keptn channels.
 
