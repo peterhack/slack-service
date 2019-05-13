@@ -100,16 +100,17 @@ function generateMessage(json payload) returns @untainted json {
         if (eventType is KEPTN_EVENT) {
             // new-artefact, configuration-changed, deployment-finished, tests-finished, evaluation-done
             if (eventType is KEPTN_CD_EVENT) {
-                string knownEventType = extractEventTypeFromEvent(event);
-                text += "*" + knownEventType.toUpper() + "*\n";
+                string knownEventType = getUpperCaseEventTypeFromEvent(event);
+                text += "*" + knownEventType + "*\n";
                 text += "Project:\t`" + event.data.project + "`\n";
                 text += "Service:\t`" + event.data.^"service" + "`\n";
                 text += "Image:  \t`" + event.data.image + ":" + event.data.tag + "`\n";
-                if payload.data.stage != () {
+                // configuration-changed, deployment-finished, tests-finished, evaluation-done
+                if (!(eventType is NEW_ARTEFACT)) {
                     text += "Stage:  \t`" + event.data.stage + "`\n";
                 }
             }
-            // problem event
+            // problem
             else {
                 text += "Problem:\t`" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`\n";
                 text += "Impact: \t`" + event.data.ImpactedEntity + "`\n";
@@ -124,11 +125,12 @@ function generateMessage(json payload) returns @untainted json {
     }
 }
 
-function extractEventTypeFromEvent(KeptnEvent event) returns string {
+function getUpperCaseEventTypeFromEvent(KeptnEvent event) returns string {
     string eventType = event.^"type";
     int indexOfLastDot = eventType.lastIndexOf(".") + 1;
     eventType = eventType.substring(indexOfLastDot, eventType.length());
-    return eventType;
+    eventType = eventType.replace("-", " ");
+    return eventType.toUpper();
 }
 
 function generateSlackMessageJSON(string text, KeptnEvent event) returns json {
@@ -219,7 +221,7 @@ function testSlackWebhookUrlPathParsing() {
 }
 
 @test:Config
-function testExtractEventTypeFromEvent() {
+function testGetUpperCaseEventTypeFromEvent() {
     KeptnEvent event = {
         specversion: "",
         datacontenttype: "",
@@ -228,8 +230,8 @@ function testExtractEventTypeFromEvent() {
         ^"type": "something.bla.bla.new-artefact"
     };
 
-    string eventType = extractEventTypeFromEvent(event);
-    test:assertEquals(eventType, "new-artefact");
+    string eventType = getUpperCaseEventTypeFromEvent(event);
+    test:assertEquals(eventType, "NEW ARTEFACT");
 }
 
 @test:Config
@@ -268,14 +270,14 @@ function testGenerateSlackMessageJSON() {
         datacontenttype: "",
         shkeptncontext: "12345",
         data: {},
-        ^"type": ""
+        ^"type": "test-message"
     };
     json actual = generateSlackMessageJSON("hello world", event);
     test:assertEquals(actual, expected);
 }
 
 @test:Config
-function testGenerateMessageWithUnkownEventType() {
+function testGenerateMessageWithUnknownEventType() {
     json expected = {
         text: "*COM.SOMETHING.EVENT*\nkeptn can't process this event, the event type is unknown",
         blocks: [
@@ -332,9 +334,9 @@ function testGetKeptnContextDefault() {
 
 @test:Config{
     dependsOn: ["testGetKeptnContextDefault",
-        "testGenerateMessageWithUnkownEventType",
+        "testGenerateMessageWithUnknownEventType",
         "testGenerateSlackMessageJSON",
-        "testExtractEventTypeFromEvent",
+        "testGetUpperCaseEventTypeFromEvent",
         "testSlackWebhookUrlPathParsing",
         "testSlackWebhookUrlHostParsing"
     ]
