@@ -17,7 +17,7 @@ spec:
       revisionTemplate:
         spec:
           container:
-            image: keptn/slack-service:0.1.0
+            image: keptn/slack-service:<latest|%version%>
             imagePullPolicy: Always
             env:
             - name: SLACK_WEBHOOK_URL
