@@ -14,8 +14,8 @@ spec:
             env:
             - name: SLACK_WEBHOOK_URL
               value: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
-            - name: INCLUDE_ATTACHMENT
-              value: "true"
+            - name: BRIDGE_URL
+              value: "http://bridge.keptn.1.2.3.4.xip.io"
 ---
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Subscription
