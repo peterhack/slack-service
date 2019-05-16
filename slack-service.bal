@@ -37,7 +37,7 @@ const PROBLEM = "sh.keptn.events.problem";
 type KEPTN_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE|PROBLEM;
 type KEPTN_CD_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE;
 
-const IMAGE_URL = "https://via.placeholder.com/150";
+const IMAGE_URL = "https://i.ibb.co/JKq69r0/got.png";
 
 listener http:Listener slackSubscriberEP = new(8080);
 
