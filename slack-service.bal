@@ -180,7 +180,7 @@ function getKeptnContext(KeptnEvent event) returns string {
         keptnContext = io:sprintf(template, event.shkeptncontext);
     }
     else {
-        url += "/view-context/%s";
+        url += "/#/view-context/%s";
         string formattedURL = io:sprintf(url, event.shkeptncontext);
         keptnContext = io:sprintf(templateWithLink, formattedURL, event.shkeptncontext);
     }
@@ -351,7 +351,7 @@ function testGetKeptnContext() {
         data: {},
         ^"type": ""
     };
-    string expected = "keptn-context: <https://www.google.at/view-context/12345|12345>";
+    string expected = "keptn-context: <https://www.google.at/#/view-context/12345|12345>";
     string actual = getKeptnContext(event);
     test:assertEquals(actual, expected);
 }
