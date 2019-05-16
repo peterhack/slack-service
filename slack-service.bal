@@ -171,10 +171,10 @@ function generateSlackMessageJSON(string text, KeptnEvent event) returns json {
 function getImageLink(KeptnEvent event) returns string {
     match event.^"type" {
         NEW_ARTEFACT => return "https://vignette.wikia.nocookie.net/pirates/images/a/ac/JackSparrowProfile.jpg";
-        CONFIGURATION_CHANGED => return "https://intl.startrek.com/sites/default/files/styles/large/public/images/2019-01/captainkirk101.jpg";
-        DEPLOYMENT_FINISHED => return "https://fanfest.com/wp-content/uploads/2018/10/captain-america-figure_0-632x450.png";
-        TESTS_FINISHED => return "https://pbs.twimg.com/profile_images/939549969958051840/zs3ndSvV.jpg";
-        EVALUATION_DONE => return "https://www.writeups.org/wp-content/uploads/Captain-Caveman-Hanna-Barbera.jpg";
+        CONFIGURATION_CHANGED => return "https://wsswired.com/wp-content/uploads/2019/02/Captain_Marvel_EW_Textless_Cover.jpg";
+        DEPLOYMENT_FINISHED => return "https://intl.startrek.com/sites/default/files/styles/large/public/images/2019-01/captainkirk101.jpg";
+        TESTS_FINISHED => return "https://upload.wikimedia.org/wikipedia/en/thumb/3/3c/Janeway_Season7.jpg/220px-Janeway_Season7.jpg";
+        EVALUATION_DONE => return "https://fanfest.com/wp-content/uploads/2018/10/captain-america-figure_0-632x450.png";
         PROBLEM => return "http://www.thespiritsbusiness.com/content/http://www.thespiritsbusiness.com/media/2012/12/456548.jpg";
     }
 
