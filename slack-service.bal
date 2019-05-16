@@ -167,7 +167,8 @@ function generateSlackMessageJSON(string text, KeptnEvent event) returns json {
 }
 
 function getImageLink(KeptnEvent event) returns string {
-    return "https://via.placeholder.com/150";
+    //return "https://via.placeholder.com/150";
+    return "https://picsum.photos/150";
 }
 
 function getKeptnContext(KeptnEvent event) returns string {
