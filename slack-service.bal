@@ -37,6 +37,8 @@ const PROBLEM = "sh.keptn.events.problem";
 type KEPTN_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE|PROBLEM;
 type KEPTN_CD_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE;
 
+const IMAGE_URL = "https://via.placeholder.com/150";
+
 listener http:Listener slackSubscriberEP = new(8080);
 
 @http:ServiceConfig {
@@ -167,8 +169,7 @@ function generateSlackMessageJSON(string text, KeptnEvent event) returns json {
 }
 
 function getImageLink(KeptnEvent event) returns string {
-    //return "https://via.placeholder.com/150";
-    return "https://picsum.photos/150";
+    return IMAGE_URL;
 }
 
 function getKeptnContext(KeptnEvent event) returns string {
@@ -249,7 +250,7 @@ function testGenerateSlackMessageJSON() {
                 },
                 "accessory": {
                     "type": "image",
-                    "image_url": "https://picsum.photos/150",
+                    "image_url": IMAGE_URL,
                     "alt_text": "alt"
                 }
             },
@@ -291,7 +292,7 @@ function testGenerateMessageWithUnknownEventType() {
                 },
                 "accessory": {
                     "type": "image",
-                    "image_url": "https://picsum.photos/150",
+                    "image_url": IMAGE_URL,
                     "alt_text": "alt"
                 }
             },
