@@ -249,7 +249,7 @@ function testGenerateSlackMessageJSON() {
                 },
                 "accessory": {
                     "type": "image",
-                    "image_url": "https://via.placeholder.com/150",
+                    "image_url": "https://picsum.photos/150",
                     "alt_text": "alt"
                 }
             },
@@ -291,7 +291,7 @@ function testGenerateMessageWithUnknownEventType() {
                 },
                 "accessory": {
                     "type": "image",
-                    "image_url": "https://via.placeholder.com/150",
+                    "image_url": "https://picsum.photos/150",
                     "alt_text": "alt"
                 }
             },
