@@ -4,6 +4,37 @@ import ballerina/io;
 import ballerina/config;
 import ballerina/test;
 
+type Options record {
+    int timeStart;
+    int timeEnd;
+};
+
+type Objectives record {
+    int warning;
+    int pass;
+};
+
+type Violation record {
+    float value;
+    string key;
+    string breach;
+    int threshold;
+};
+
+type IndicatorResult record {
+    string id;
+    int score;
+    Violation[] violations;
+};
+
+type EvaluationDetails record {
+    string result;
+    int totalScore;
+    Options options;
+    Objectives objectives;
+    IndicatorResult[] indicatorResults;
+};
+
 type KeptnData record {
     string image?;
     string tag?;
@@ -14,6 +45,8 @@ type KeptnData record {
     string ProblemID?;
     string ProblemTitle?;
     string ImpactedEntity?;
+    string evaluationpassed?;
+    EvaluationDetails evaluationdetails?;
     anydata...;
 };
 
@@ -60,13 +93,16 @@ service slackservice on slackSubscriberEP {
         else {
             http:Request req = new;
             json slackMessageJson = generateMessage(payload);
-            req.setJsonPayload(slackMessageJson);
 
-            var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
-            _ = handleResponse(response);
+            if (slackMessageJson != ()) {
+                req.setJsonPayload(slackMessageJson);
+
+                var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
+                _ = handleResponse(response);
+            }
         }   
 
-        http:Response res = new;
+        http:Response res = new; 
         checkpanic caller->respond(res);
     }
 }
@@ -94,6 +130,7 @@ function generateMessage(json payload) returns @untainted json {
 
     if (event is error) {
         log:printError("error converting JSON payload '" + payload.toString() + "' to keptn event", err = event);
+        return ();
     }
     else {
         string text = "";
@@ -109,7 +146,29 @@ function generateMessage(json payload) returns @untainted json {
                 text += "Image:  \t`" + event.data.image + ":" + event.data.tag + "`\n";
                 // configuration-changed, deployment-finished, tests-finished, evaluation-done
                 if (!(eventType is NEW_ARTEFACT)) {
-                    text += "Stage:  \t`" + event.data.stage + "`\n";
+                    text += "Stage:   \t`" + event.data.stage + "`\n";
+                }
+                if (eventType is EVALUATION_DONE) {
+                    EvaluationDetails|error details = EvaluationDetails.convert(event.data.evaluationdetails);
+
+                    if (details is error) {
+                        log:printError("error converting to EvaluationDetails", err = details);
+                    }
+                    else {
+                        text += "Passed: \t`" + event.data.evaluationpassed + "`\n";
+                        text += "Score:   \t`" + event.data.evaluationdetails.totalScore + "`";
+                        text += " _(warn " + event.data.evaluationdetails.objectives.warning; 
+                        text += "/pass " + event.data.evaluationdetails.objectives.pass + ")_";
+
+                        if (event.data.evaluationpassed == "false") {
+                            foreach IndicatorResult indicator in details.indicatorResults {
+                                foreach Violation violation in indicator.violations {
+                                    text += "\n>" + indicator.id + ": `" + violation.value + " > " + violation.threshold + "`";
+                                    //text += " _(" + violation.key + ")_";
+                                }
+                            }
+                        }
+                    }
                 }
             }
             // problem
