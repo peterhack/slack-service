@@ -14,6 +14,8 @@ type KeptnData record {
     string ProblemID?;
     string ProblemTitle?;
     string ImpactedEntity?;
+    string evaluationpassed?;
+    json evaluationdetails?;
     anydata...;
 };
 
@@ -109,7 +111,28 @@ function generateMessage(json payload) returns @untainted json {
                 text += "Image:  \t`" + event.data.image + ":" + event.data.tag + "`\n";
                 // configuration-changed, deployment-finished, tests-finished, evaluation-done
                 if (!(eventType is NEW_ARTEFACT)) {
-                    text += "Stage:  \t`" + event.data.stage + "`\n";
+                    text += "Stage:   \t`" + event.data.stage + "`\n";
+                }
+
+                if (eventType is EVALUATION_DONE) {
+                    text += "Passed: \t`" + event.data.evaluationpassed + "`\n";
+                    text += "Score:   \t`" + event.data.evaluationdetails["totalScore"].toString() + "` ";
+                    text += "_(warn " + event.data.evaluationdetails["objectives"]["warning"].toString() + "/";
+                    text += "pass " + event.data.evaluationdetails["objectives"]["pass"].toString() + ")_";
+
+                    if (event.data.evaluationpassed == "false") {
+                        int i = 0;
+                        while (i < event.data.evaluationdetails["indicatorResults"].length()) {
+                            int j = 0;
+                            while (j < event.data.evaluationdetails["indicatorResults"][i]["violations"].length()) {
+                                text += "\n>" + event.data.evaluationdetails["indicatorResults"][i]["id"].toString() + ": ";
+                                text += "`" + event.data.evaluationdetails["indicatorResults"][i]["violations"][j]["value"].toString();
+                                text += " > " + event.data.evaluationdetails["indicatorResults"][i]["violations"][j]["threshold"].toString() + "`";
+                                j += 1;
+                            }
+                            i += 1;
+                        }
+                    }
                 }
             }
             // problem
