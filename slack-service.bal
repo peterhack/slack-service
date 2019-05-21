@@ -4,6 +4,37 @@ import ballerina/io;
 import ballerina/config;
 import ballerina/test;
 
+type Options record {
+    int timeStart;
+    int timeEnd;
+};
+
+type Objectives record {
+    int warning;
+    int pass;
+};
+
+type Violation record {
+    float value;
+    string key;
+    string breach;
+    int threshold;
+};
+
+type IndicatorResult record {
+    string id;
+    int score;
+    Violation[] violations;
+};
+
+type EvaluationDetails record {
+    string result;
+    int totalScore;
+    Options options;
+    Objectives objectives;
+    IndicatorResult[] indicatorResults;
+};
+
 type KeptnData record {
     string image?;
     string tag?;
@@ -14,8 +45,8 @@ type KeptnData record {
     string ProblemID?;
     string ProblemTitle?;
     string ImpactedEntity?;
-    string evaluationpassed?;
-    json evaluationdetails?;
+    boolean evaluationpassed?;
+    EvaluationDetails evaluationdetails?;
     anydata...;
 };
 
@@ -62,10 +93,12 @@ service slackservice on slackSubscriberEP {
         else {
             http:Request req = new;
             json slackMessageJson = generateMessage(payload);
-            req.setJsonPayload(slackMessageJson);
+            if (slackMessageJson != ()) {
+                req.setJsonPayload(slackMessageJson);
 
-            var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
-            _ = handleResponse(response);
+                var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
+                _ = handleResponse(response);
+            }
         }   
 
         http:Response res = new;
@@ -96,6 +129,7 @@ function generateMessage(json payload) returns @untainted json {
 
     if (event is error) {
         log:printError("error converting JSON payload '" + payload.toString() + "' to keptn event", err = event);
+        return ();
     }
     else {
         string text = "";
@@ -115,28 +149,27 @@ function generateMessage(json payload) returns @untainted json {
                 }
 
                 if (eventType is EVALUATION_DONE) {
+                    EvaluationDetails details = event.data.evaluationdetails;
                     text += "Passed: \t`" + event.data.evaluationpassed + "`\n";
-                    text += "Score:   \t`" + event.data.evaluationdetails["totalScore"].toString() + "` ";
-                    text += "_(warn " + event.data.evaluationdetails["objectives"]["warning"].toString() + "/";
-                    text += "pass " + event.data.evaluationdetails["objectives"]["pass"].toString() + ")_";
+                    text += "Score:   \t`" + details.totalScore + "` ";
+                    text += "_(warn " + details.objectives.warning + "/";
+                    text += "pass " + details.objectives.pass + ")_";
 
-                    if (event.data.evaluationpassed == "false") {
-                        int i = 0;
-                        while (i < event.data.evaluationdetails["indicatorResults"].length()) {
-                            int j = 0;
-                            while (j < event.data.evaluationdetails["indicatorResults"][i]["violations"].length()) {
-                                text += "\n>" + event.data.evaluationdetails["indicatorResults"][i]["id"].toString() + ": ";
-                                text += "`" + event.data.evaluationdetails["indicatorResults"][i]["violations"][j]["value"].toString();
-                                text += " > " + event.data.evaluationdetails["indicatorResults"][i]["violations"][j]["threshold"].toString() + "`";
-                                j += 1;
+                    if (event.data.evaluationpassed == false) {
+                        foreach IndicatorResult indicatorResult in details.indicatorResults {
+                            foreach Violation violation in indicatorResult.violations {
+                                text += "\n>" + indicatorResult.id + ": ";
+                                text += "`" + violation.value;
+                                text += " > " + violation.threshold + "`";
                             }
-                            i += 1;
                         }
                     }
                 }
             }
             // problem
             else {
+                string knownEventType = getUpperCaseEventTypeFromEvent(event);
+                text += "*" + knownEventType + "*\n";
                 text += "Problem:\t`" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`\n";
                 text += "Impact: \t`" + event.data.ImpactedEntity + "`\n";
             }  
