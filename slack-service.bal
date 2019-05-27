@@ -70,7 +70,7 @@ const PROBLEM = "sh.keptn.events.problem";
 type KEPTN_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE|PROBLEM;
 type KEPTN_CD_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE;
 
-const IMAGE_URL = "https://i.ibb.co/JKq69r0/got.png";
+const IMAGE_URL = "https://via.placeholder.com/150";
 
 listener http:Listener slackSubscriberEP = new(8080);
 
@@ -225,15 +225,6 @@ function generateSlackMessageJSON(string text, KeptnEvent event) returns json {
 }
 
 function getImageLink(KeptnEvent event) returns string {
-    match event.^"type" {
-        NEW_ARTEFACT => return "https://vignette.wikia.nocookie.net/pirates/images/a/ac/JackSparrowProfile.jpg";
-        CONFIGURATION_CHANGED => return "https://wsswired.com/wp-content/uploads/2019/02/Captain_Marvel_EW_Textless_Cover.jpg";
-        DEPLOYMENT_FINISHED => return "https://intl.startrek.com/sites/default/files/styles/large/public/images/2019-01/captainkirk101.jpg";
-        TESTS_FINISHED => return "https://upload.wikimedia.org/wikipedia/en/thumb/3/3c/Janeway_Season7.jpg/220px-Janeway_Season7.jpg";
-        EVALUATION_DONE => return "https://fanfest.com/wp-content/uploads/2018/10/captain-america-figure_0-632x450.png";
-        PROBLEM => return "http://www.thespiritsbusiness.com/content/http://www.thespiritsbusiness.com/media/2012/12/456548.jpg";
-    }
-
     return IMAGE_URL;
 }
 
