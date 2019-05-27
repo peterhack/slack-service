@@ -45,7 +45,7 @@ type KeptnData record {
     string ProblemID?;
     string ProblemTitle?;
     string ImpactedEntity?;
-    string evaluationpassed?;
+    boolean evaluationpassed?;
     EvaluationDetails evaluationdetails?;
     anydata...;
 };
@@ -96,7 +96,6 @@ service slackservice on slackSubscriberEP {
 
             if (slackMessageJson != ()) {
                 req.setJsonPayload(slackMessageJson);
-
                 var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
                 _ = handleResponse(response);
             }
@@ -148,24 +147,20 @@ function generateMessage(json payload) returns @untainted json {
                 if (!(eventType is NEW_ARTEFACT)) {
                     text += "Stage:   \t`" + event.data.stage + "`\n";
                 }
+
                 if (eventType is EVALUATION_DONE) {
-                    EvaluationDetails|error details = EvaluationDetails.convert(event.data.evaluationdetails);
+                    EvaluationDetails details = event.data.evaluationdetails;
+                    text += "Passed: \t`" + event.data.evaluationpassed + "`\n";
+                    text += "Score:   \t`" + details.totalScore + "` ";
+                    text += "_(warn " + details.objectives.warning + "/";
+                    text += "pass " + details.objectives.pass + ")_";
 
-                    if (details is error) {
-                        log:printError("error converting to EvaluationDetails", err = details);
-                    }
-                    else {
-                        text += "Passed: \t`" + event.data.evaluationpassed + "`\n";
-                        text += "Score:   \t`" + event.data.evaluationdetails.totalScore + "`";
-                        text += " _(warn " + event.data.evaluationdetails.objectives.warning; 
-                        text += "/pass " + event.data.evaluationdetails.objectives.pass + ")_";
-
-                        if (event.data.evaluationpassed == "false") {
-                            foreach IndicatorResult indicator in details.indicatorResults {
-                                foreach Violation violation in indicator.violations {
-                                    text += "\n>" + indicator.id + ": `" + violation.value + " > " + violation.threshold + "`";
-                                    //text += " _(" + violation.key + ")_";
-                                }
+                    if (event.data.evaluationpassed == false) {
+                        foreach IndicatorResult indicatorResult in details.indicatorResults {
+                            foreach Violation violation in indicatorResult.violations {
+                                text += "\n>" + indicatorResult.id + ": ";
+                                text += "`" + violation.value;
+                                text += " > " + violation.threshold + "`";
                             }
                         }
                     }
@@ -173,6 +168,8 @@ function generateMessage(json payload) returns @untainted json {
             }
             // problem
             else {
+                string knownEventType = getUpperCaseEventTypeFromEvent(event);
+                text += "*" + knownEventType + "*\n";
                 text += "Problem:\t`" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`\n";
                 text += "Impact: \t`" + event.data.ImpactedEntity + "`\n";
             }  
