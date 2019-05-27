@@ -93,15 +93,15 @@ service slackservice on slackSubscriberEP {
         else {
             http:Request req = new;
             json slackMessageJson = generateMessage(payload);
+
             if (slackMessageJson != ()) {
                 req.setJsonPayload(slackMessageJson);
-
                 var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
                 _ = handleResponse(response);
             }
         }   
 
-        http:Response res = new;
+        http:Response res = new; 
         checkpanic caller->respond(res);
     }
 }
