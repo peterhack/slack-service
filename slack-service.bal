@@ -15,10 +15,10 @@ type Objectives record {
 };
 
 type Violation record {
-    float value;
+    int|float value;
     string key;
     string breach;
-    int threshold;
+    int threshold?;
 };
 
 type IndicatorResult record {
@@ -157,10 +157,21 @@ function generateMessage(json payload) returns @untainted json {
 
                     if (event.data.evaluationpassed == false) {
                         foreach IndicatorResult indicatorResult in details.indicatorResults {
+                            int violationCount = 0;
                             foreach Violation violation in indicatorResult.violations {
                                 text += "\n>" + indicatorResult.id + ": ";
-                                text += "`" + violation.value;
-                                text += " > " + violation.threshold + "`";
+                                text += "`" + io:sprintf("%s", violation.value);
+
+                                json|error result = json.convert(indicatorResult);
+
+                                if (result is json) {
+                                    if (result["violations"][violationCount]["threshold"] != ()) {
+                                        text += " > " + io:sprintf("%s", violation.threshold);
+                                    }
+                                }
+
+                                text += "`";
+                                violationCount += 1;
                             }
                         }
                     }
