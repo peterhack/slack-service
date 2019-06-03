@@ -22,13 +22,13 @@ spec:
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Subscription
 metadata:
-  name: slack-subscription-new-artefact
+  name: slack-subscription-new-artifact
   namespace: keptn
 spec:
   channel:
     apiVersion: eventing.knative.dev/v1alpha1
     kind: Channel
-    name: new-artefact
+    name: new-artifact
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1alpha1
