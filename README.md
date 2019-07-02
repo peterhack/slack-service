@@ -38,7 +38,7 @@ kubectl apply -f slack-service.yaml
 Expected output:
 ```
 service.serving.knative.dev/slack-service created
-subscription.eventing.knative.dev/slack-subscription-new-artefact created
+subscription.eventing.knative.dev/slack-subscription-new-artifact created
 subscription.eventing.knative.dev/slack-subscription-configuration-changed created
 subscription.eventing.knative.dev/slack-subscription-deployment-finished created
 subscription.eventing.knative.dev/slack-subscription-tests-finished created
@@ -61,7 +61,7 @@ slack-subscription-configuration-changed        True
 slack-subscription-deployment-finished          True
 slack-subscription-evaluation-done              True
 slack-subscription-keptn                        True
-slack-subscription-new-artefact                 True
+slack-subscription-new-artifact                 True
 slack-subscription-tests-finished               True
 $
 ```

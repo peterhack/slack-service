@@ -4,6 +4,37 @@ import ballerina/io;
 import ballerina/config;
 import ballerina/test;
 
+type Options record {
+    int timeStart;
+    int timeEnd;
+};
+
+type Objectives record {
+    int warning;
+    int pass;
+};
+
+type Violation record {
+    int|float value;
+    string key;
+    string breach;
+    int threshold?;
+};
+
+type IndicatorResult record {
+    string id;
+    int score;
+    Violation[] violations;
+};
+
+type EvaluationDetails record {
+    string result;
+    int totalScore;
+    Options options;
+    Objectives objectives;
+    IndicatorResult[] indicatorResults;
+};
+
 type KeptnData record {
     string image?;
     string tag?;
@@ -14,6 +45,8 @@ type KeptnData record {
     string ProblemID?;
     string ProblemTitle?;
     string ImpactedEntity?;
+    boolean evaluationpassed?;
+    EvaluationDetails evaluationdetails?;
     anydata...;
 };
 
@@ -37,6 +70,8 @@ const PROBLEM = "sh.keptn.events.problem";
 type KEPTN_EVENT NEW_ARTIFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE|PROBLEM;
 type KEPTN_CD_EVENT NEW_ARTIFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE;
 
+const IMAGE_URL = "https://via.placeholder.com/150";
+
 listener http:Listener slackSubscriberEP = new(8080);
 
 @http:ServiceConfig {
@@ -58,13 +93,15 @@ service slackservice on slackSubscriberEP {
         else {
             http:Request req = new;
             json slackMessageJson = generateMessage(payload);
-            req.setJsonPayload(slackMessageJson);
 
-            var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
-            _ = handleResponse(response);
+            if (slackMessageJson != ()) {
+                req.setJsonPayload(slackMessageJson);
+                var response = slackEndpoint->post(getSlackWebhookUrlPath(), req);
+                _ = handleResponse(response);
+            }
         }   
 
-        http:Response res = new;
+        http:Response res = new; 
         checkpanic caller->respond(res);
     }
 }
@@ -92,6 +129,7 @@ function generateMessage(json payload) returns @untainted json {
 
     if (event is error) {
         log:printError("error converting JSON payload '" + payload.toString() + "' to keptn event", err = event);
+        return ();
     }
     else {
         string text = "";
@@ -107,11 +145,42 @@ function generateMessage(json payload) returns @untainted json {
                 text += "Image:  \t`" + event.data.image + ":" + event.data.tag + "`\n";
                 // configuration-changed, deployment-finished, tests-finished, evaluation-done
                 if (!(eventType is NEW_ARTIFACT)) {
-                    text += "Stage:  \t`" + event.data.stage + "`\n";
+                    text += "Stage:   \t`" + event.data.stage + "`\n";
+                }
+
+                if (eventType is EVALUATION_DONE) {
+                    EvaluationDetails details = event.data.evaluationdetails;
+                    text += "Passed: \t`" + event.data.evaluationpassed + "`\n";
+                    text += "Score:   \t`" + details.totalScore + "` ";
+                    text += "_(warn " + details.objectives.warning + "/";
+                    text += "pass " + details.objectives.pass + ")_";
+
+                    if (event.data.evaluationpassed == false) {
+                        foreach IndicatorResult indicatorResult in details.indicatorResults {
+                            int violationCount = 0;
+                            foreach Violation violation in indicatorResult.violations {
+                                text += "\n>" + indicatorResult.id + ": ";
+                                text += "`" + io:sprintf("%s", violation.value);
+
+                                json|error result = json.convert(indicatorResult);
+
+                                if (result is json) {
+                                    if (result["violations"][violationCount]["threshold"] != ()) {
+                                        text += " > " + io:sprintf("%s", violation.threshold);
+                                    }
+                                }
+
+                                text += "`";
+                                violationCount += 1;
+                            }
+                        }
+                    }
                 }
             }
             // problem
             else {
+                string knownEventType = getUpperCaseEventTypeFromEvent(event);
+                text += "*" + knownEventType + "*\n";
                 text += "Problem:\t`" + event.data.ProblemID + ": " + event.data.ProblemTitle + "`\n";
                 text += "Impact: \t`" + event.data.ImpactedEntity + "`\n";
             }  
@@ -167,7 +236,7 @@ function generateSlackMessageJSON(string text, KeptnEvent event) returns json {
 }
 
 function getImageLink(KeptnEvent event) returns string {
-    return "https://via.placeholder.com/150";
+    return IMAGE_URL;
 }
 
 function getKeptnContext(KeptnEvent event) returns string {
@@ -180,7 +249,7 @@ function getKeptnContext(KeptnEvent event) returns string {
         keptnContext = io:sprintf(template, event.shkeptncontext);
     }
     else {
-        url += "/view-context/%s";
+        url += "/#/view-context/%s";
         string formattedURL = io:sprintf(url, event.shkeptncontext);
         keptnContext = io:sprintf(templateWithLink, formattedURL, event.shkeptncontext);
     }
@@ -248,7 +317,7 @@ function testGenerateSlackMessageJSON() {
                 },
                 "accessory": {
                     "type": "image",
-                    "image_url": "https://via.placeholder.com/150",
+                    "image_url": IMAGE_URL,
                     "alt_text": "alt"
                 }
             },
@@ -290,7 +359,7 @@ function testGenerateMessageWithUnknownEventType() {
                 },
                 "accessory": {
                     "type": "image",
-                    "image_url": "https://via.placeholder.com/150",
+                    "image_url": IMAGE_URL,
                     "alt_text": "alt"
                 }
             },
@@ -351,7 +420,7 @@ function testGetKeptnContext() {
         data: {},
         ^"type": ""
     };
-    string expected = "keptn-context: <https://www.google.at/view-context/12345|12345>";
+    string expected = "keptn-context: <https://www.google.at/#/view-context/12345|12345>";
     string actual = getKeptnContext(event);
     test:assertEquals(actual, expected);
 }
