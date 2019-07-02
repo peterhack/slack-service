@@ -28,14 +28,14 @@ type KeptnEvent record {
     KeptnData data;
 };
 
-const NEW_ARTEFACT = "sh.keptn.events.new-artefact";
+const NEW_ARTIFACT = "sh.keptn.events.new-artifact";
 const CONFIGURATION_CHANGED = "sh.keptn.events.configuration-changed";
 const DEPLOYMENT_FINISHED = "sh.keptn.events.deployment-finished";
 const TESTS_FINISHED = "sh.keptn.events.tests-finished";
 const EVALUATION_DONE = "sh.keptn.events.evaluation-done";
 const PROBLEM = "sh.keptn.events.problem";
-type KEPTN_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE|PROBLEM;
-type KEPTN_CD_EVENT NEW_ARTEFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE;
+type KEPTN_EVENT NEW_ARTIFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE|PROBLEM;
+type KEPTN_CD_EVENT NEW_ARTIFACT|CONFIGURATION_CHANGED|DEPLOYMENT_FINISHED|TESTS_FINISHED|EVALUATION_DONE;
 
 listener http:Listener slackSubscriberEP = new(8080);
 
@@ -98,7 +98,7 @@ function generateMessage(json payload) returns @untainted json {
         string eventType = event.^"type";
 
         if (eventType is KEPTN_EVENT) {
-            // new-artefact, configuration-changed, deployment-finished, tests-finished, evaluation-done
+            // new-artifact, configuration-changed, deployment-finished, tests-finished, evaluation-done
             if (eventType is KEPTN_CD_EVENT) {
                 string knownEventType = getUpperCaseEventTypeFromEvent(event);
                 text += "*" + knownEventType + "*\n";
@@ -106,7 +106,7 @@ function generateMessage(json payload) returns @untainted json {
                 text += "Service:\t`" + event.data.^"service" + "`\n";
                 text += "Image:  \t`" + event.data.image + ":" + event.data.tag + "`\n";
                 // configuration-changed, deployment-finished, tests-finished, evaluation-done
-                if (!(eventType is NEW_ARTEFACT)) {
+                if (!(eventType is NEW_ARTIFACT)) {
                     text += "Stage:  \t`" + event.data.stage + "`\n";
                 }
             }
@@ -228,11 +228,11 @@ function testGetUpperCaseEventTypeFromEvent() {
         datacontenttype: "",
         shkeptncontext: "",
         data: {},
-        ^"type": "something.bla.bla.new-artefact"
+        ^"type": "something.bla.bla.new-artifact"
     };
 
     string eventType = getUpperCaseEventTypeFromEvent(event);
-    test:assertEquals(eventType, "NEW ARTEFACT");
+    test:assertEquals(eventType, "NEW ARTIFACT");
 }
 
 @test:Config

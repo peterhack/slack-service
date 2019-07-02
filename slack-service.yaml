@@ -14,19 +14,17 @@ spec:
             env:
             - name: SLACK_WEBHOOK_URL
               value: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
-            - name: BRIDGE_URL
-              value: "http://bridge.keptn.1.2.3.4.xip.io"
 ---
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Subscription
 metadata:
-  name: slack-subscription-new-artefact
+  name: slack-subscription-new-artifact
   namespace: keptn
 spec:
   channel:
     apiVersion: eventing.knative.dev/v1alpha1
     kind: Channel
-    name: new-artefact
+    name: new-artifact
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1alpha1
