@@ -56,7 +56,7 @@ type KeptnEvent record {
     string source?;
     string id?;
     string time?;
-    string datacontenttype;
+    string contenttype;
     string shkeptncontext;
     KeptnData data;
 };
@@ -294,7 +294,7 @@ function testSlackWebhookUrlPathParsing() {
 function testGetUpperCaseEventTypeFromEvent() {
     KeptnEvent event = {
         specversion: "",
-        datacontenttype: "",
+        contenttype: "",
         shkeptncontext: "",
         data: {},
         ^"type": "something.bla.bla.new-artifact"
@@ -337,7 +337,7 @@ function testGenerateSlackMessageJSON() {
     };
     KeptnEvent event = {
         specversion: "",
-        datacontenttype: "",
+        contenttype: "",
         shkeptncontext: "12345",
         data: {},
         ^"type": "test-message"
@@ -379,7 +379,7 @@ function testGenerateMessageWithUnknownEventType() {
     };
     json payload = {
         specversion: "",
-        datacontenttype: "",
+        contenttype: "",
         shkeptncontext: "123",
         data: {},
         ^"type": "com.something.event"
@@ -392,7 +392,7 @@ function testGenerateMessageWithUnknownEventType() {
 function testGetKeptnContextDefault() {
     KeptnEvent event = {
         specversion: "",
-        datacontenttype: "",
+        contenttype: "",
         shkeptncontext: "a9b94cff-1b10-4018-9b78-28898f78800d",
         data: {},
         ^"type": ""
@@ -415,7 +415,7 @@ function testGetKeptnContext() {
     config:setConfig("BRIDGE_URL", "https://www.google.at");
     KeptnEvent event = {
         specversion: "",
-        datacontenttype: "",
+        contenttype: "",
         shkeptncontext: "12345",
         data: {},
         ^"type": ""
